@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: prime-transport-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app
+    username: app
+    password: app
+  jpa:
+    # Le schéma est géré par Flyway : Hibernate se contente de le vérifier.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
