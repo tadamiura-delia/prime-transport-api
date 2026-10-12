@@ -93,16 +93,28 @@ erDiagram
         varchar libelle
         int ordre
     }
+
+    distance_lieu {
+        bigint id PK "généré (identity)"
+        varchar utilisateur_id UK "sub Keycloak ; unique avec lieu_code"
+        varchar lieu_code FK,UK "unique avec utilisateur_id"
+        numeric distance_km "5,2 ; >= 0"
+    }
+
+    lieu_travail ||--o{ distance_lieu : "a pour distances"
 ```
 
 | Migration | Contenu |
 | --- | --- |
 | `V1__referentiels.sql` | Tables `lieu_travail` et `moyen_transport`, avec les 6 lieux et les 2 transports initiaux |
+| `V2__distance_lieu.sql` | Table `distance_lieu` : une distance par utilisateur et par lieu |
 
-**Prochaines tables (étape 2)**, rattachées à l'utilisateur par l'identifiant Keycloak (`sub` du JWT) :
+Points à noter :
 
-- `distance_lieu` : une distance par utilisateur et par lieu.
-- `jour_type` : sept jours par utilisateur, chacun avec un lieu et un transport facultatif.
+- `utilisateur_id` n'est pas une clé étrangère : les utilisateurs vivent dans Keycloak, dans une autre base.
+- La clé étrangère vers `lieu_travail` n'a pas de `ON DELETE CASCADE`. Postgres refuse donc de supprimer un lieu qui a encore des distances.
+
+**Prochaine table (étape 2)** : `jour_type`, avec sept jours par utilisateur. Chaque jour a un lieu et un transport facultatif.
 
 ## Tenir ce document à jour
 
