@@ -38,6 +38,8 @@ Les tests d'intégration démarrent leur propre Postgres jetable via Testcontain
 
 ## Organisation du code
 
+Schémas d'architecture et de la base de données : [docs/architecture.md](docs/architecture.md).
+
 Découpage par fonctionnalité, sous `fr.delia.primetransport` :
 
 | Package | Contenu |
