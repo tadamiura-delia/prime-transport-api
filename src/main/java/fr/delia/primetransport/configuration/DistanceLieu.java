@@ -19,47 +19,49 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "distance_lieu")
 public class DistanceLieu {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(nullable = false, updatable = false)
-    private Long id;
 
-    @Column(nullable = false, updatable = false)
-    private String utilisateurId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(nullable = false, updatable = false)
+	private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "lieu_code", nullable = false)
-    private LieuTravail lieu;
+	@Column(nullable = false, updatable = false)
+	private String utilisateurId;
 
-    @Column(nullable = false, precision = 5, scale = 2)
-    private BigDecimal distanceKm;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "lieu_code", nullable = false)
+	private LieuTravail lieu;
 
-    protected DistanceLieu() {
-    }
+	@Column(nullable = false, precision = 5, scale = 2)
+	private BigDecimal distanceKm;
 
-    public DistanceLieu(String utilisateurId, LieuTravail lieu, BigDecimal distanceKm) {
-        this.utilisateurId = utilisateurId;
-        this.lieu = lieu;
-        this.distanceKm = distanceKm;
-    }
+	protected DistanceLieu() {
+	}
 
-    public Long getId() {
-        return id;
-    }
+	public DistanceLieu(String utilisateurId, LieuTravail lieu, BigDecimal distanceKm) {
+		this.utilisateurId = utilisateurId;
+		this.lieu = lieu;
+		this.distanceKm = distanceKm;
+	}
 
-    public String getUtilisateurId() {
-        return utilisateurId;
-    }
+	public Long getId() {
+		return id;
+	}
 
-    public LieuTravail getLieu() {
-        return lieu;
-    }
+	public String getUtilisateurId() {
+		return utilisateurId;
+	}
 
-    public BigDecimal getDistanceKm() {
-        return distanceKm;
-    }
+	public LieuTravail getLieu() {
+		return lieu;
+	}
 
-    public void setDistanceKm(BigDecimal distanceKm) {
-        this.distanceKm = distanceKm;
-    }
+	public BigDecimal getDistanceKm() {
+		return distanceKm;
+	}
+
+	public void setDistanceKm(BigDecimal distanceKm) {
+		this.distanceKm = distanceKm;
+	}
+
 }

@@ -5,7 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** Moyen de transport déclarable. « Aucun » n'en est pas un : c'est l'absence de valeur. */
+/**
+ * Moyen de transport déclarable. « Aucun » n'en est pas un : c'est l'absence de valeur.
+ */
 @Entity
 @Table(name = "moyen_transport")
 public class MoyenTransport {

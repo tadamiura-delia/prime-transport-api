@@ -20,7 +20,9 @@ public class LieuTravail {
 	@Column(nullable = false)
 	private int ordre;
 
-	/** Lieu dont l'application dépend (samedi et dimanche) : il ne peut pas être supprimé. */
+	/**
+	 * Lieu dont l'application dépend (samedi et dimanche) : il ne peut pas être supprimé.
+	 */
 	@Column(nullable = false)
 	private boolean systeme;
 

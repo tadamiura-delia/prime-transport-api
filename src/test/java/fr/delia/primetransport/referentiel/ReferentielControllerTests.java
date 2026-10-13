@@ -12,7 +12,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import fr.delia.primetransport.TestcontainersConfiguration;
 
-/** Test d'intégration : vraie base Postgres (Testcontainers), migrations Flyway incluses. */
+/**
+ * Test d'intégration : vraie base Postgres (Testcontainers), migrations Flyway incluses.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -23,32 +25,28 @@ class ReferentielControllerTests {
 
 	@Test
 	void findLieuxRenvoieLesSixLieuxDansLOrdre() {
-		assertThat(mvc.get().uri("/api/referentiels/lieux"))
-				.hasStatus(HttpStatus.OK)
-				.bodyJson()
-				.extractingPath("$[*].code")
-				.asArray()
-				.containsExactly("teletravail", "conges-ferie", "agence-rennes", "agence-nantes", "mission-1",
-						"mission-2");
+		assertThat(mvc.get().uri("/api/referentiels/lieux")).hasStatus(HttpStatus.OK)
+			.bodyJson()
+			.extractingPath("$[*].code")
+			.asArray()
+			.containsExactly("teletravail", "conges-ferie", "agence-rennes", "agence-nantes", "mission-1", "mission-2");
 	}
 
 	@Test
 	void findLieuxSignaleLeLieuSysteme() {
-		assertThat(mvc.get().uri("/api/referentiels/lieux"))
-				.bodyJson()
-				.extractingPath("$[?(@.systeme == true)].code")
-				.asArray()
-				.containsExactly("conges-ferie");
+		assertThat(mvc.get().uri("/api/referentiels/lieux")).bodyJson()
+			.extractingPath("$[?(@.systeme == true)].code")
+			.asArray()
+			.containsExactly("conges-ferie");
 	}
 
 	@Test
 	void findTransportsRenvoieVeloEtCovoiturage() {
-		assertThat(mvc.get().uri("/api/referentiels/transports"))
-				.hasStatus(HttpStatus.OK)
-				.bodyJson()
-				.extractingPath("$[*].code")
-				.asArray()
-				.containsExactly("velo", "covoiturage");
+		assertThat(mvc.get().uri("/api/referentiels/transports")).hasStatus(HttpStatus.OK)
+			.bodyJson()
+			.extractingPath("$[*].code")
+			.asArray()
+			.containsExactly("velo", "covoiturage");
 	}
 
 }
