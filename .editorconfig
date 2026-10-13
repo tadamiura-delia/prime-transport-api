@@ -1,0 +1,30 @@
+# Règles de saisie partagées par les éditeurs (VS Code avec l'extension EditorConfig, IntelliJ...).
+# La vérification, elle, est faite par spring-javaformat au moment du build Maven.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Style du code Spring : tabulations.
+[*.{java,xml}]
+indent_style = tab
+indent_size = 4
+
+[*.sql]
+indent_style = space
+indent_size = 4
+
+# YAML interdit les tabulations.
+[*.{yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+# En Markdown, deux espaces en fin de ligne forcent un retour à la ligne.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cmd]
+end_of_line = crlf
