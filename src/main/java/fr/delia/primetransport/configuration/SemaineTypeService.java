@@ -42,6 +42,15 @@ public class SemaineTypeService {
 	}
 
 	/**
+	 * Les jours type de l'utilisateur, du dimanche au samedi.
+	 * @return une liste vide si l'utilisateur n'a jamais enregistré de semaine type
+	 */
+	@Transactional(readOnly = true)
+	public List<JourTypeDto> findSemaineType(String utilisateurId) {
+		return lireSemaine(utilisateurId);
+	}
+
+	/**
 	 * Remplace la semaine type de l'utilisateur. Samedi et dimanche sont toujours
 	 * enregistrés en congés/férié sans transport, quoi que contienne la requête.
 	 * @throws IllegalArgumentException si un jour apparaît plusieurs fois
