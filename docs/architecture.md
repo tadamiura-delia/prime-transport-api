@@ -40,8 +40,8 @@ flowchart LR
 | Élément | Rôle | État |
 | --- | --- | --- |
 | Front Angular | Interface utilisateur (dépôt `tuto_angular_dsfr`) | Existant, pas encore branché sur l'API |
-| API Spring Boot | Expose la configuration en REST et applique les règles métier | Étape 1 faite |
-| PostgreSQL | Stocke référentiels et configuration ; schéma géré par Flyway | Étape 1 faite |
+| API Spring Boot | Expose la configuration en REST et applique les règles métier | Étapes 1 et 2 faites |
+| PostgreSQL | Stocke référentiels et configuration ; schéma géré par Flyway | Étapes 1 et 2 faites |
 | Keycloak | Authentification, rôles `user` et `admin` | Prévu (étape 3) |
 
 ## Découpage du code
@@ -63,16 +63,41 @@ flowchart TB
     end
 
     subgraph configuration["package configuration"]
-        cc["ConfigurationController<br/>/api/me/*"]
+        direction TB
+        cc["DistanceLieuController<br/>/api/me/distances<br/>SemaineTypeController<br/>/api/me/semaine-type"]
+        cs["DistanceLieuService<br/>SemaineTypeService"]
+        cr["DistanceLieuRepository<br/>JourTypeRepository"]
+        ce["DistanceLieu, JourType<br/>(entités JPA)"]
+        cin["DistanceLieuRequest, SemaineTypeRequest,<br/>JourTypeRequest (records validés)"]
+        cd["DistanceLieuDto, JourTypeDto<br/>(records JSON)"]
+        cc --> cs --> cr --> ce
+        cin -- "reçu par" --> cc
+        cs -- "convertit en" --> cd
     end
+
+    cs -- "retrouve lieux et transports" --> rr
 
     subgraph config["package config"]
         sec["SecurityConfig<br/>(tout ouvert pour l'instant)"]
     end
-
-    classDef prevu stroke-dasharray: 5 5,color:#888
-    class configuration,cc prevu
 ```
+
+## API
+
+Toutes les routes `/api/me/...` concernent l'utilisateur connecté. En attendant
+Keycloak (étape 3), les controllers utilisent un utilisateur provisoire, `alice`.
+
+| Méthode | Route | Effet | Réponses |
+| --- | --- | --- | --- |
+| GET | `/api/referentiels/lieux` | Les 6 lieux, triés | 200 |
+| GET | `/api/referentiels/transports` | Les transports, triés | 200 |
+| GET | `/api/me/distances` | Tous les lieux avec leur distance, 0 si jamais saisie | 200 |
+| PUT | `/api/me/distances/{lieuCode}` | Crée ou modifie la distance d'un lieu | 200, 400 si invalide |
+| GET | `/api/me/semaine-type` | Les 7 jours, du dimanche (0) au samedi (6) | 200, 404 si jamais enregistrée |
+| PUT | `/api/me/semaine-type` | Remplace la semaine ; samedi et dimanche forcés à `conges-ferie` sans transport | 200, 400 si invalide |
+
+Erreurs encore provisoires (traitées à l'étape 4) : un lieu ou un transport
+inexistant, et un jour présent deux fois, répondent 500.
 
 ## Base de données
 
@@ -101,20 +126,31 @@ erDiagram
         numeric distance_km "5,2 ; >= 0"
     }
 
+    jour_type {
+        bigint id PK "généré (identity)"
+        varchar utilisateur_id UK "sub Keycloak ; unique avec jour"
+        smallint jour UK "0 = dimanche ... 6 = samedi"
+        varchar lieu_code FK "obligatoire"
+        varchar transport_code FK "facultatif : null = aucun"
+    }
+
     lieu_travail ||--o{ distance_lieu : "a pour distances"
+    lieu_travail ||--o{ jour_type : "lieu du jour"
+    moyen_transport |o--o{ jour_type : "transport du jour"
 ```
 
 | Migration | Contenu |
 | --- | --- |
 | `V1__referentiels.sql` | Tables `lieu_travail` et `moyen_transport`, avec les 6 lieux et les 2 transports initiaux |
 | `V2__distance_lieu.sql` | Table `distance_lieu` : une distance par utilisateur et par lieu |
+| `V3__jour_type.sql` | Table `jour_type` : un lieu et un transport facultatif par utilisateur et par jour |
 
 Points à noter :
 
 - `utilisateur_id` n'est pas une clé étrangère : les utilisateurs vivent dans Keycloak, dans une autre base.
-- La clé étrangère vers `lieu_travail` n'a pas de `ON DELETE CASCADE`. Postgres refuse donc de supprimer un lieu qui a encore des distances.
-
-**Prochaine table (étape 2)** : `jour_type`, avec sept jours par utilisateur. Chaque jour a un lieu et un transport facultatif.
+- Les clés étrangères vers `lieu_travail` n'ont pas de `ON DELETE CASCADE`. Postgres refuse donc de supprimer un lieu qui a encore des distances ou des jours type.
+- Dans `jour_type`, `transport_code` accepte `NULL` : « aucun transport » n'est pas une ligne de `moyen_transport`.
+- `jour` suit la convention de `Date.getDay()` côté front : 0 = dimanche, 6 = samedi.
 
 ## Tenir ce document à jour
 
