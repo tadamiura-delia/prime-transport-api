@@ -147,4 +147,21 @@ class DistanceLieuControllerTests {
 			.containsExactly(0);
 	}
 
+	@Test
+	void enregistrerDistanceAvecUnLieuInconnuRenvoie404() {
+		assertThat(mvc.put()
+			.uri("/api/me/distances/{lieuCode}", "agence-renne")
+			.with(utilisateur("alice"))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+						{"distanceKm": 15}
+					""")).hasStatus(HttpStatus.NOT_FOUND)
+			.bodyJson()
+			.extractingPath("$.detail")
+			.asString()
+			.contains("agence-renne");
+
+		assertThat(repository.count()).isZero();
+	}
+
 }

@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import fr.delia.primetransport.common.RequeteInvalideException;
+import fr.delia.primetransport.common.RessourceIntrouvableException;
 import fr.delia.primetransport.referentiel.LieuTravail;
 import fr.delia.primetransport.referentiel.LieuTravailRepository;
 import fr.delia.primetransport.referentiel.MoyenTransport;
@@ -53,7 +55,7 @@ public class SemaineTypeService {
 	/**
 	 * Remplace la semaine type de l'utilisateur. Samedi et dimanche sont toujours
 	 * enregistrés en congés/férié sans transport, quoi que contienne la requête.
-	 * @throws IllegalArgumentException si un jour apparaît plusieurs fois
+	 * @throws RequeteInvalideException si un jour apparaît plusieurs fois
 	 */
 
 	@Transactional
@@ -62,7 +64,7 @@ public class SemaineTypeService {
 		long nombreDeJoursDifferents = semaine.jours().stream().map(JourTypeRequest::jour).distinct().count();
 
 		if (nombreDeJoursDifferents != 7) {
-			throw new IllegalArgumentException("Chaque jour de la semaine doit apparaître une fois");
+			throw new RequeteInvalideException("Chaque jour de la semaine doit apparaître une fois");
 		}
 
 		Map<Short, JourType> joursExistants = jourTypeRepository.findByUtilisateurIdOrderByJourAsc(utilisateurId)
@@ -76,9 +78,11 @@ public class SemaineTypeService {
 			String lieuCode = weekend ? LIEU_CONGES_FERIE : jourRecu.lieuCode();
 			String transportCode = weekend ? null : jourRecu.transportCode();
 
-			LieuTravail lieu = lieuTravailRepository.findById(lieuCode).orElseThrow();
-			MoyenTransport moyenTransport = transportCode != null
-					? moyenTransportRepository.findById(transportCode).orElseThrow() : null;
+			LieuTravail lieu = lieuTravailRepository.findById(lieuCode)
+				.orElseThrow(() -> new RessourceIntrouvableException("Lieu de travail inconnu : " + lieuCode));
+			MoyenTransport moyenTransport = transportCode != null ? moyenTransportRepository.findById(transportCode)
+				.orElseThrow(() -> new RessourceIntrouvableException("Moyen de transport inconnu : " + transportCode))
+					: null;
 
 			JourType existant = joursExistants.get(jour);
 

@@ -175,4 +175,50 @@ class SemaineTypeControllerTests {
 		assertThat(repository.count()).isZero();
 	}
 
+	@Test
+	void enregistrerSemaineTypeAvecUnJourEnDoubleRenvoie400() {
+		assertThat(mvc.put()
+			.uri("/api/me/semaine-type")
+			.with(utilisateur("alice"))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+					{ "jours": [
+					    { "jour": 0, "lieuCode": "conges-ferie" },
+					    { "jour": 1, "lieuCode": "agence-nantes", "transportCode": "velo" },
+					    { "jour": 2, "lieuCode": "teletravail" },
+					    { "jour": 3, "lieuCode": "agence-rennes", "transportCode": "covoiturage" },
+					    { "jour": 4, "lieuCode": "teletravail" },
+					    { "jour": 5, "lieuCode": "agence-nantes" },
+					    { "jour": 5, "lieuCode": "agence-nantes" }
+					] }
+					""")).hasStatus(HttpStatus.BAD_REQUEST)
+			.bodyJson()
+			.extractingPath("$.detail")
+			.asString()
+			.contains("Chaque jour de la semaine doit apparaître une fois");
+
+		assertThat(repository.count()).isZero();
+	}
+
+	@Test
+	void enregistrerSemaineTypeAvecUnMoyenTransportInconnuRenvoie404() {
+		assertThat(mvc.put()
+			.uri("/api/me/semaine-type")
+			.with(utilisateur("alice"))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+					{ "jours": [
+					    { "jour": 0, "lieuCode": "conges-ferie" },
+					    { "jour": 1, "lieuCode": "agence-rennes", "transportCode": "moto" },
+					    { "jour": 2, "lieuCode": "teletravail" },
+					    { "jour": 3, "lieuCode": "agence-rennes", "transportCode": "covoiturage" },
+					    { "jour": 4, "lieuCode": "teletravail" },
+					    { "jour": 5, "lieuCode": "agence-nantes" },
+					    { "jour": 6, "lieuCode": "agence-nantes" }
+					] }
+					""")).hasStatus(HttpStatus.NOT_FOUND);
+
+		assertThat(repository.count()).isZero();
+	}
+
 }

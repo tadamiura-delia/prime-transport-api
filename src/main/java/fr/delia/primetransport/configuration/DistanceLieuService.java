@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import fr.delia.primetransport.common.RessourceIntrouvableException;
 import fr.delia.primetransport.referentiel.LieuTravail;
 import fr.delia.primetransport.referentiel.LieuTravailRepository;
 
@@ -51,7 +52,8 @@ public class DistanceLieuService {
 			distanceLieu.setDistanceKm(distanceKm);
 		}
 		else {
-			LieuTravail lieu = lieuTravailRepository.findById(lieuCode).orElseThrow();
+			LieuTravail lieu = lieuTravailRepository.findById(lieuCode)
+				.orElseThrow(() -> new RessourceIntrouvableException("Lieu de travail inconnu : " + lieuCode));
 			distanceLieu = distanceLieuRepository.save(new DistanceLieu(utilisateurId, lieu, distanceKm));
 		}
 
