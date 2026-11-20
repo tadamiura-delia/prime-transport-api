@@ -32,17 +32,18 @@ flowchart LR
     navigateur -. "connexion (OIDC + PKCE)" .-> keycloak
     controller -. "vérifie le JWT" .-> keycloak
     keycloak -.-> keycloakdb
-
-    classDef prevu stroke-dasharray: 5 5,color:#888
-    class keycloak,keycloakdb prevu
 ```
+
+Les flèches en pointillés ne transportent pas de données métier : connexion de
+l'utilisateur, et récupération par l'API de la clé publique de Keycloak (une fois,
+puis mise en cache).
 
 | Élément | Rôle | État |
 | --- | --- | --- |
 | Front Angular | Interface utilisateur (dépôt `tuto_angular_dsfr`) | Existant, pas encore branché sur l'API |
-| API Spring Boot | Expose la configuration en REST et applique les règles métier | Étapes 1 et 2 faites |
-| PostgreSQL | Stocke référentiels et configuration ; schéma géré par Flyway | Étapes 1 et 2 faites |
-| Keycloak | Authentification, rôles `user` et `admin` | Prévu (étape 3) |
+| API Spring Boot | Expose la configuration en REST et applique les règles métier | Étapes 1 à 3 faites |
+| PostgreSQL | Stocke référentiels et configuration ; schéma géré par Flyway | Étapes 1 à 3 faites |
+| Keycloak | Authentification, rôles `user` et `admin` ; realm importé depuis `keycloak/realm-export.json` | Étape 3 faite |
 
 ## Découpage du code
 
@@ -78,26 +79,77 @@ flowchart TB
     cs -- "retrouve lieux et transports" --> rr
 
     subgraph config["package config"]
-        sec["SecurityConfig<br/>(tout ouvert pour l'instant)"]
+        sec["SecurityConfig<br/>(JWT Keycloak, rôles du realm)"]
     end
 ```
 
 ## API
 
-Toutes les routes `/api/me/...` concernent l'utilisateur connecté. En attendant
-Keycloak (étape 3), les controllers utilisent un utilisateur provisoire, `alice`.
+Toutes les routes exigent un JWT valide (en-tête `Authorization: Bearer ...`),
+sinon **401**. Les routes `/api/me/...` concernent l'utilisateur connecté, identifié
+par le `sub` du jeton, et exigent le rôle `user`, sinon **403**.
 
-| Méthode | Route | Effet | Réponses |
-| --- | --- | --- | --- |
-| GET | `/api/referentiels/lieux` | Les 6 lieux, triés | 200 |
-| GET | `/api/referentiels/transports` | Les transports, triés | 200 |
-| GET | `/api/me/distances` | Tous les lieux avec leur distance, 0 si jamais saisie | 200 |
-| PUT | `/api/me/distances/{lieuCode}` | Crée ou modifie la distance d'un lieu | 200, 400 si invalide |
-| GET | `/api/me/semaine-type` | Les 7 jours, du dimanche (0) au samedi (6) | 200, 404 si jamais enregistrée |
-| PUT | `/api/me/semaine-type` | Remplace la semaine ; samedi et dimanche forcés à `conges-ferie` sans transport | 200, 400 si invalide |
+| Méthode | Route | Rôle | Effet | Réponses |
+| --- | --- | --- | --- | --- |
+| GET | `/api/referentiels/lieux` | authentifié | Les 6 lieux, triés | 200 |
+| GET | `/api/referentiels/transports` | authentifié | Les transports, triés | 200 |
+| GET | `/api/me/distances` | `user` | Tous les lieux avec leur distance, 0 si jamais saisie | 200 |
+| PUT | `/api/me/distances/{lieuCode}` | `user` | Crée ou modifie la distance d'un lieu | 200, 400 si invalide |
+| GET | `/api/me/semaine-type` | `user` | Les 7 jours, du dimanche (0) au samedi (6) | 200, 404 si jamais enregistrée |
+| PUT | `/api/me/semaine-type` | `user` | Remplace la semaine ; samedi et dimanche forcés à `conges-ferie` sans transport | 200, 400 si invalide |
+
+Restent ouvertes sans jeton : `/actuator/health` et la documentation Swagger
+(`/swagger-ui.html`, `/v3/api-docs`).
 
 Erreurs encore provisoires (traitées à l'étape 4) : un lieu ou un transport
 inexistant, et un jour présent deux fois, répondent 500.
+
+## Sécurité
+
+```mermaid
+sequenceDiagram
+    participant N as Navigateur / curl
+    participant K as Keycloak :8180
+    participant A as API :8080
+
+    N->>K: identifiants (realm prime-transport)
+    K-->>N: JWT signé (sub, realm_access.roles, exp)
+    N->>A: requête + Authorization: Bearer JWT
+    A->>A: vérifie signature, iss et exp
+    A->>A: realm_access.roles → ROLE_user, ROLE_admin
+    A-->>N: 200, ou 401 (jeton absent ou invalide), ou 403 (rôle manquant)
+```
+
+- **Vérification** : l'API ne connaît que l'`issuer-uri` du realm (`application.yml`).
+  Elle en déduit la clé publique de Keycloak, et vérifie chaque jeton localement.
+- **Rôles** : `SecurityConfig` convertit `realm_access.roles` en rôles Spring
+  (`user` → `ROLE_user`). Le rôle `admin` est composite : il inclut `user`.
+- **Utilisateur** : les controllers lisent le `sub` du jeton (`@AuthenticationPrincipal Jwt`)
+  et le passent aux services comme `utilisateurId`. C'est un UUID stable, pas le nom de connexion.
+- **Sans état** : aucune session ni cookie côté API, d'où la protection CSRF désactivée.
+- **Jetons** : valables 5 minutes (`accessTokenLifespan`).
+
+Comptes de développement (définis dans le realm) :
+
+| Utilisateur | Mot de passe | Rôles |
+| --- | --- | --- |
+| `alice` | `alice` | `user` |
+| `bob` | `bob` | `admin` (donc aussi `user`) |
+
+Obtenir un jeton en ligne de commande, grâce à `directAccessGrantsEnabled` sur le client
+`angular-front` (réservé au développement) :
+
+```bash
+curl -s -d client_id=angular-front -d username=alice -d password=alice -d grant_type=password \
+  http://localhost:8180/realms/prime-transport/protocol/openid-connect/token
+```
+
+Le realm n'est importé qu'au premier démarrage de Keycloak : une modification de
+`realm-export.json` n'est prise en compte qu'après suppression du realm.
+
+Dans les tests, `jwt()` de `spring-security-test` simule un utilisateur sans appeler
+Keycloak. Il n'utilise pas la conversion des rôles : les rôles se donnent explicitement
+(`.authorities(new SimpleGrantedAuthority("ROLE_user"))`).
 
 ## Base de données
 
