@@ -1,6 +1,7 @@
 package fr.delia.primetransport.referentiel;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +9,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import fr.delia.primetransport.TestcontainersConfiguration;
 
@@ -23,9 +26,14 @@ class ReferentielControllerTests {
 	@Autowired
 	private MockMvcTester mvc;
 
+	/** Un utilisateur connecté, avec le rôle user. */
+	private static RequestPostProcessor utilisateur(String sub) {
+		return jwt().jwt(jeton -> jeton.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_user"));
+	}
+
 	@Test
 	void findLieuxRenvoieLesSixLieuxDansLOrdre() {
-		assertThat(mvc.get().uri("/api/referentiels/lieux")).hasStatus(HttpStatus.OK)
+		assertThat(mvc.get().uri("/api/referentiels/lieux").with(utilisateur("alice"))).hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.extractingPath("$[*].code")
 			.asArray()
@@ -34,7 +42,7 @@ class ReferentielControllerTests {
 
 	@Test
 	void findLieuxSignaleLeLieuSysteme() {
-		assertThat(mvc.get().uri("/api/referentiels/lieux")).bodyJson()
+		assertThat(mvc.get().uri("/api/referentiels/lieux").with(utilisateur("alice"))).bodyJson()
 			.extractingPath("$[?(@.systeme == true)].code")
 			.asArray()
 			.containsExactly("conges-ferie");
@@ -42,7 +50,7 @@ class ReferentielControllerTests {
 
 	@Test
 	void findTransportsRenvoieVeloEtCovoiturage() {
-		assertThat(mvc.get().uri("/api/referentiels/transports")).hasStatus(HttpStatus.OK)
+		assertThat(mvc.get().uri("/api/referentiels/transports").with(utilisateur("alice"))).hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.extractingPath("$[*].code")
 			.asArray()

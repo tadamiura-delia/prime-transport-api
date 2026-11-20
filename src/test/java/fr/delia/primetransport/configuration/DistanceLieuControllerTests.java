@@ -1,6 +1,7 @@
 package fr.delia.primetransport.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import fr.delia.primetransport.TestcontainersConfiguration;
 
@@ -32,9 +35,14 @@ class DistanceLieuControllerTests {
 		repository.deleteAll();
 	}
 
+	/** Un utilisateur connecté, avec le rôle user. */
+	private static RequestPostProcessor utilisateur(String sub) {
+		return jwt().jwt(jeton -> jeton.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_user"));
+	}
+
 	@Test
 	void findDistancesRenvoieZeroPourUnNouvelUtilisateur() {
-		assertThat(mvc.get().uri("/api/me/distances")).hasStatus(HttpStatus.OK)
+		assertThat(mvc.get().uri("/api/me/distances").with(utilisateur("alice"))).hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.extractingPath("$[*].distanceKm")
 			.asArray()
@@ -45,6 +53,7 @@ class DistanceLieuControllerTests {
 	void enregistrerDistanceCreeLaDistance() {
 		assertThat(mvc.put()
 			.uri("/api/me/distances/{lieuCode}", "agence-rennes")
+			.with(utilisateur("alice"))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"distanceKm": 13.5}
@@ -62,6 +71,7 @@ class DistanceLieuControllerTests {
 	void enregistrerDistanceModifieLaDistance() {
 		assertThat(mvc.put()
 			.uri("/api/me/distances/{lieuCode}", "agence-rennes")
+			.with(utilisateur("alice"))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"distanceKm": 10}
@@ -73,6 +83,7 @@ class DistanceLieuControllerTests {
 
 		assertThat(mvc.put()
 			.uri("/api/me/distances/{lieuCode}", "agence-rennes")
+			.with(utilisateur("alice"))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"distanceKm": 15}
@@ -82,58 +93,58 @@ class DistanceLieuControllerTests {
 
 		assertThat(repository.findByUtilisateurIdAndLieuCode("alice", "agence-rennes")).isPresent();
 
-		assertThat(mvc.get().uri("/api/me/distances")).hasStatus(HttpStatus.OK)
+		assertThat(mvc.get().uri("/api/me/distances").with(utilisateur("alice"))).hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.extractingPath("$[?(@.lieuCode == 'agence-rennes')].distanceKm")
 			.asArray()
 			.containsExactly(15.0);
 	}
 
-	// @Test
-	// void enregistrerDistanceRefuseUneDistanceNegative() {
-	// assertThat(mvc.put()
-	// .uri("/api/me/distances/{lieuCode", "agence-rennes")
-	// .contentType(MediaType.APPLICATION_JSON)
-	// .content("""
-	// {"distanceKm": -3}
-	// """)).hasStatus(HttpStatus.BAD_REQUEST);
-
-	// assertThat(repository.count()).isZero();
-	// }
-
-	// @Test
-	// void enregistrerDistanceRefuseUneDistanceTropGrande() {
-	// assertThat(mvc.put()
-	// .uri("/api/me/distances/{lieuCode}", "agence-rennes")
-	// .contentType(MediaType.APPLICATION_JSON)
-	// .content("""
-	// {"distanceKm": 1200}
-	// """)).hasStatus(HttpStatus.BAD_REQUEST);
-
-	// assertThat(repository.count()).isZero();
-	// }
-
-	// @Test
-	// void enregistrerDistanceRefuseUneDistanceAbsente() {
-	// assertThat(mvc.put()
-	// .uri("/api/me/distances/{lieuCode}", "agence-rennes")
-	// .contentType(MediaType.APPLICATION_JSON)
-	// .content("""
-	// {}
-	// """)).hasStatus(HttpStatus.BAD_REQUEST);
-
-	// assertThat(repository.count()).isZero();
-	// }
-
 	@ParameterizedTest
 	@ValueSource(strings = { "{ \"distanceKm\": -3}", "{\"distanceKm\": 1500}", "{}" })
 	void enregistrerDistanceRefuseUneDistanceInvalide(String body) {
 		assertThat(mvc.put()
 			.uri("/api/me/distances/{lieuCode}", "agence-rennes")
+			.with(utilisateur("alice"))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body)).hasStatus(HttpStatus.BAD_REQUEST);
 
 		assertThat(repository.count()).isZero();
+	}
+
+	@Test
+	void findDistancesSansJetonRenvoie401() {
+		assertThat(mvc.get().uri("/api/me/distances")).hasStatus(HttpStatus.UNAUTHORIZED);
+	}
+
+	@Test
+	void findDistancesSansRoleUtilisateurRenvoie403() {
+		assertThat(mvc.get().uri("/api/me/distances").with(jwt())).hasStatus(HttpStatus.FORBIDDEN);
+	}
+
+	@Test
+	void enregistrerUneDistanceDoitEtreLisibleQueParSonUtilisateur() {
+		assertThat(mvc.put()
+			.uri("/api/me/distances/{lieuCode}", "agence-rennes")
+			.with(utilisateur("alice"))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+					{"distanceKm": 15}
+					""")).hasStatus(HttpStatus.OK).bodyJson().isLenientlyEqualTo("""
+					{"lieuCode": "agence-rennes", "distanceKm": 15}
+					""");
+
+		assertThat(mvc.get().uri("/api/me/distances").with(utilisateur("alice"))).hasStatus(HttpStatus.OK)
+			.bodyJson()
+			.extractingPath("$[?(@.lieuCode == 'agence-rennes')].distanceKm")
+			.asArray()
+			.containsExactly(15.0);
+
+		assertThat(mvc.get().uri("/api/me/distances").with(utilisateur("bob"))).hasStatus(HttpStatus.OK)
+			.bodyJson()
+			.extractingPath("$[?(@.lieuCode == 'agence-rennes')].distanceKm")
+			.asArray()
+			.containsExactly(0);
 	}
 
 }
