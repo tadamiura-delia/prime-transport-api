@@ -2,6 +2,8 @@ package fr.delia.primetransport.configuration;
 
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -15,8 +17,6 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/me/distances")
 public class DistanceLieuController {
 
-	private static final String UTILISATEUR_PROVISOIRE = "alice";
-
 	private final DistanceLieuService service;
 
 	public DistanceLieuController(DistanceLieuService service) {
@@ -24,14 +24,14 @@ public class DistanceLieuController {
 	}
 
 	@GetMapping
-	public List<DistanceLieuDto> findDistances() {
-		return service.findDistances(UTILISATEUR_PROVISOIRE);
+	public List<DistanceLieuDto> findDistances(@AuthenticationPrincipal Jwt jwt) {
+		return service.findDistances(jwt.getSubject());
 	}
 
 	@PutMapping("/{lieuCode}")
 	public DistanceLieuDto enregistrerDistance(@PathVariable String lieuCode,
-			@Valid @RequestBody DistanceLieuRequest request) {
-		return service.enregistrerDistance(UTILISATEUR_PROVISOIRE, lieuCode, request.distanceKm());
+			@Valid @RequestBody DistanceLieuRequest request, @AuthenticationPrincipal Jwt jwt) {
+		return service.enregistrerDistance(jwt.getSubject(), lieuCode, request.distanceKm());
 	}
 
 }
